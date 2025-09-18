@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <title>ตารางจองสนามเทนนิส</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- React Big Calendar -->
+  <link rel="stylesheet" href="https://unpkg.com/react-big-calendar/lib/css/react-big-calendar.css">
+  <!-- MUI -->
+  <link href="https://cdn.jsdelivr.net/npm/@mui/material@5.15.10/dist/material.min.css" rel="stylesheet" />
+  <style>
+    body {
+      background: #fffbe7;
+      min-height: 100vh;
+      font-family: 'Segoe UI', 'Noto Sans Thai', sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    .booking-container {
+      padding: 16px;
+      min-height: 100vh;
+      background: #fff;
+      box-sizing: border-box;
+    }
+    @media (max-width: 768px) {
+      .rbc-calendar, .rbc-month-view, .rbc-header, .rbc-date-cell, .rbc-event, .rbc-toolbar-label, .rbc-show-more {
+        font-size: 11px !important;
+        padding: 2px !important;
+      }
+      .rbc-toolbar-label {
+        font-size: 1.1rem !important;
+      }
+    }
+    @media (max-width: 480px) {
+      .rbc-calendar, .rbc-month-view, .rbc-header, .rbc-date-cell, .rbc-event, .rbc-toolbar-label, .rbc-show-more {
+        font-size: 8px !important;
+        padding: 1px !important;
+      }
+      .rbc-toolbar-label {
+        font-size: 0.9rem !important;
+      }
+      h1 {
+        font-size: 1rem !important;
+      }
+      .MuiTypography-root {
+        font-size: 0.75rem !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <!-- React, ReactDOM, Moment, MUI, react-big-calendar -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/min/moment.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/locale/th.js"></script>
+  <script src="https://unpkg.com/@mui/material@5.15.10/umd/material-ui.development.js"></script>
+  <script src="https://unpkg.com/react-big-calendar@1.13.4/dist/react-big-calendar.min.js"></script>
+  <script>
+    // API เรียกข้อมูลจอง (mock/fetch)
+    async function getReservations() {
+      // ใช้ fetch จริง
+      const res = await fetch('/api/calendar');
+      const data = await res.json();
+      return { data };
+    }
+
+    const { useState, useEffect } = React;
+    const { Calendar, momentLocalizer } = window.ReactBigCalendar;
+    const moment = window.moment;
+    const localizer = momentLocalizer(moment);
+
+    // Calendar Event Mapping
+    function mapReservationsToEvents(reservations) {
+      return reservations.map(resv => {
+        // รองรับทั้ง "DD/MM/YYYY" และ "YYYY-MM-DD"
+        let y, m, d;
+        if (resv.reservDate.includes('/')) {
+          [d, m, y] = resv.reservDate.split('/');
+        } else if (resv.reservDate.includes('-')) {
+          [y, m, d] = resv.reservDate.split('-');
+        }
+        const startDateTime = new Date(+y, +m - 1, +d, ...resv.startTime.split(':'));
+        const endDateTime = new Date(+y, +m - 1, +d, ...resv.endTime.split(':'));
+        return {
+          id: resv.reservID,
+          title: `${moment(startDateTime).format('HH:mm')} - ${moment(endDateTime).format('HH:mm')}`,
+          start: startDateTime,
+          end: endDateTime,
+          paymentMethod: resv.paymentMethod
+        };
+      });
+    }
+
+    const formats = {
+      timeGutterFormat: 'HH:mm',
+      eventTimeRangeFormat: ({ start, end }) =>
+        `${moment(start).format('HH:mm')} - ${moment(end).format('HH:mm')}`,
+      dayHeaderFormat: (date) =>
+        moment(date).format('ddddที่ D MMMM YYYY'),
+      dayRangeHeaderFormat: ({ start, end }) =>
+        ` ${moment(start).format('D MMMM YYYY')} - ${moment(end).format('D MMMM YYYY')}`,
+    };
+
+    function CalendarForCus() {
+      const [events, setEvents] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [view, setView] = useState('month');
+      const [date, setDate] = useState(new Date());
+      const [selectedEvent, setSelectedEvent] = useState([]);
+      const [isModalOpen, setIsModalOpen] = useState(false);
+      const [selectedTab, setSelectedTab] = useState(0);
+
+      useEffect(() => {
+        moment.locale('th');
+        const fetchReservations = async () => {
+          try {
+            const res = await getReservations();
+            const mappedEvents = mapReservationsToEvents(res.data);
+            setEvents(mappedEvents);
+          } catch (error) {
+            console.error('Error loading reservations:', error);
+          } finally {
+            setLoading(false);
+          }
+        };
+        fetchReservations();
+      }, []);
+
+      // Handler for clicking a date (slot)
+      const handleSelectSlot = (slotInfo) => {
+  const dayEvents = events.filter(event => moment(event.start).isSame(slotInfo.start, 'day'));
+  const allTimes = [];
+
+  // Generate time slots from 07:00 to 22:00 (แต่ละ slot คือ 1 ชั่วโมง)
+  for (let hour = 7; hour < 22; hour++) {
+    const slotStart = moment(slotInfo.start).set({ hour: hour, minute: 0, second: 0, millisecond: 0 }).toDate();
+    const slotEnd = moment(slotInfo.start).set({ hour: hour + 1, minute: 0, second: 0, millisecond: 0 }).toDate();
+    const isBooked = dayEvents.some(event =>
+      (slotStart < event.end && slotEnd > event.start)
+    );
+    const eventDetail = dayEvents.find(event =>
+      (slotStart < event.end && slotEnd > event.start)
+    );
+    allTimes.push({
+      start: slotStart,
+      end: slotEnd,
+      isBooked,
+      eventDetail
+    });
+  }
+
+  setSelectedEvent(allTimes);
+  setIsModalOpen(true);
+};
+
+const handleSelectEvent = (event) => {
+  const dayEvents = events.filter(e => moment(e.start).isSame(event.start, 'day'));
+  const allTimes = [];
+
+  // Generate time slots from 07:00 to 22:00 (แต่ละ slot คือ 1 ชั่วโมง)
+  for (let hour = 7; hour < 22; hour++) {
+    const slotStart = moment(event.start).set({ hour: hour, minute: 0, second: 0, millisecond: 0 }).toDate();
+    const slotEnd = moment(event.start).set({ hour: hour + 1, minute: 0, second: 0, millisecond: 0 }).toDate();
+    const isBooked = dayEvents.some(e =>
+      (slotStart < e.end && slotEnd > e.start)
+    );
+    const eventDetail = dayEvents.find(e =>
+      (slotStart < e.end && slotEnd > e.start)
+    );
+    allTimes.push({
+      start: slotStart,
+      end: slotEnd,
+      isBooked,
+      eventDetail
+    });
+  }
+
+  setSelectedEvent(allTimes);
+  setIsModalOpen(true);
+};
+
+      // Detect mobile device (screen <= 480px)
+      const isMobile = typeof window !== 'undefined' ? window.innerWidth <= 480 : false;
+      const isTablet = typeof window !== 'undefined' ? window.innerWidth > 480 && window.innerWidth <= 768 : false;
+
+      // Adjust modal behavior for mobile
+      const modalStyle = {
+        position: 'absolute',
+        top: isMobile ? '10%' : '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        width: isMobile ? '95vw' : '70vw',
+        maxHeight: isMobile ? '90vh' : '80vh',
+        bgcolor: 'background.paper',
+        borderRadius: 3,
+        boxShadow: 24,
+        p: isMobile ? 1 : 3,
+        overflowY: 'auto',
+        fontSize: isMobile ? '0.85em' : '1.05em'
+      };
+
+      if (loading) {
+        return React.createElement('div', null, 'กำลังโหลดข้อมูล...');
+      }
+
+      return React.createElement(
+        'div',
+        {
+          className: 'booking-container',
+          style: {
+            padding: isMobile ? '4px' : isTablet ? '8px' : '16px',
+            minHeight: '100vh',
+            background: isMobile ? '#fffbe7' : '#fff',
+            boxSizing: 'border-box'
+          }
+        },
+        React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: isMobile ? '8px' : '18px' } },
+          React.createElement('div', {
+            style: {
+              display: isMobile ? 'block' : 'flex',
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: isMobile ? 'flex-start' : 'center',
+              gap: isMobile ? '10px' : '18px'
+            }
+          },
+            React.createElement('h1', {
+              style: {
+                textAlign: isMobile ? 'center' : 'left',
+                fontSize: isMobile ? '1.2rem' : isTablet ? '1.6rem' : '2rem',
+                color: '#65000a',
+                marginBottom: isMobile ? '6px' : 0
+              }
+            }, 'ตารางจองสนามเทนนิส'),
+            React.createElement(window['MaterialUI'].Box, {
+              sx: {
+                mb: 1.5,
+                borderRadius: 2,
+                background: '#fffbe7',
+                border: '1px solid #e0c080',
+                padding: { xs: '12px 10px', sm: '14px 20px' },
+                maxWidth: 560,
+                margin: isMobile ? '0 auto' : '0 0 0 auto',
+                fontSize: { xs: '0.95em', sm: '1.05em' }
+              }
+            },
+              React.createElement(window['MaterialUI'].Typography, {
+                sx: { color: '#65000a', fontWeight: 700, mb: 0.4, fontSize: isMobile ? '0.9em' : '1em' }
+              }, 'อัตราค่าบริการจองคอร์ท'),
+              React.createElement(window['MaterialUI'].Typography, { sx: { fontSize: isMobile ? '0.85em' : '1em' } },
+                React.createElement('span', { style: { color: '#344', fontWeight: 500 } }, '07.00-18.00'),
+                ' ชั่วโมงละ ', React.createElement('b', { style: { color: '#267a25' } }, '450 บาท')
+              ),
+              React.createElement(window['MaterialUI'].Typography, { sx: { fontSize: isMobile ? '0.85em' : '1em' } },
+                React.createElement('span', { style: { color: '#344', fontWeight: 500 } }, '18.00-22.00'),
+                ' ชั่วโมงละ ', React.createElement('b', { style: { color: '#c62828' } }, '600 บาท')
+              )
+            )
+          ),
+          React.createElement(Calendar, {
+            className: 'calendar',
+            localizer: localizer,
+            formats: formats,
+            min: new Date(1970, 1, 1, 7, 0),
+            max: new Date(1970, 1, 1, 22, 0),
+            events: events,
+            startAccessor: "start",
+            endAccessor: "end",
+            view: view,
+            onView: setView,
+            date: date,
+            onNavigate: setDate,
+            views: ['month'],
+            selectable: true,
+            onSelectSlot: handleSelectSlot,
+            onSelectEvent: handleSelectEvent,
+            style: {
+              height: isMobile ? '60vh' : isTablet ? '65vh' : '85vh',
+              borderRadius: isMobile ? '6px' : '12px',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.09)',
+              backgroundColor: '#fff',
+              width: '100%',
+              fontSize: isMobile ? '12px' : isTablet ? '13px' : '15px',
+              whiteSpace: 'pre-line'
+            },
+            eventPropGetter: (event) => ({
+              style: {
+                backgroundColor: '#d7ba80',
+                color: '#65000a',
+                borderRadius: '8px',
+                padding: isMobile ? '1px 3px' : '2px 6px'
+              }
+            })
+          }),
+          // Modal to show bookings for the selected day
+          React.createElement(window['MaterialUI'].Modal, {
+            open: isModalOpen,
+            onClose: () => setIsModalOpen(false),
+            'aria-labelledby': "day-bookings-modal-title",
+            'aria-describedby': "day-bookings-modal-desc"
+          },
+            React.createElement(window['MaterialUI'].Box, {
+              sx: {
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                width: isMobile ? '90vw' : '70vw',
+                maxHeight: '80vh',
+                bgcolor: 'background.paper',
+                borderRadius: 3,
+                boxShadow: 24,
+                p: isMobile ? 2 : 3,
+                overflowY: 'auto',
+                fontSize: isMobile ? '0.92em' : '1.05em'
+              }
+            },
+              React.createElement(window['MaterialUI'].Box, {
+                sx: {
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  mb: 2
+                }
+              },
+                React.createElement(window['MaterialUI'].Typography, {
+                  id: "day-bookings-modal-title",
+                  variant: "h6",
+                  component: "h2",
+                  sx: { color: '#65000a', fontSize: isMobile ? '1em' : '1.2em' }
+                }, 'เวลาการจองทั้งหมด'),
+                React.createElement(window['MaterialUI'].Button, {
+                  onClick: () => setIsModalOpen(false),
+                  sx: { color: '#65000a', fontSize: isMobile ? '0.9em' : '1em' }
+                }, 'ปิด')
+              ),
+              selectedEvent && selectedEvent.length > 0
+                ? React.createElement('div', { style: { fontSize: '1.06em', color: '#333' } },
+                    selectedEvent.map((timeSlot, index) =>
+                      React.createElement('div', {
+                        key: index,
+                        style: {
+                          fontSize: '0.98em',
+                          marginBottom: '8px',
+                          color: timeSlot.isBooked ? 'red' : 'green',
+                          fontWeight: 500
+                        }
+                      },
+                        React.createElement('div', null, 'เวลา: ',
+                          React.createElement('b', null, moment(timeSlot.start).format('HH:mm'), ' - ', moment(timeSlot.end).format('HH:mm')),
+                          timeSlot.isBooked ? ' (จองแล้ว)' : ' (ว่าง)'
+                        ),
+                        React.createElement('hr', { style: { margin: '8px 0' } })
+                      )
+                    )
+                  )
+                : React.createElement('div', null, 'ไม่มีการจองในวันนี้')
+            )
+          ),
+          isMobile && (
+            React.createElement('div', {
+              style: {
+                color: 'red',
+                textAlign: 'center',
+                marginTop: '10px',
+                fontWeight: 500,
+                fontSize: '1.05em'
+              }
+            }, 'กดค้างที่วันที่เพื่อแสดงเวลาจองเพิ่มเติม')
+          )
+        )
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(CalendarForCus));
+  </script>
+</body>
+</html>
