@@ -133,22 +133,24 @@
   const dayEvents = events.filter(event => moment(event.start).isSame(slotInfo.start, 'day'));
   const allTimes = [];
 
-  // Generate time slots from 07:00 to 22:00 (แต่ละ slot คือ 1 ชั่วโมง)
+  // Generate time slots from 07:00 to 22:00 (แต่ละ slot คือ 30 นาที)
   for (let hour = 7; hour < 22; hour++) {
-    const slotStart = moment(slotInfo.start).set({ hour: hour, minute: 0, second: 0, millisecond: 0 }).toDate();
-    const slotEnd = moment(slotInfo.start).set({ hour: hour + 1, minute: 0, second: 0, millisecond: 0 }).toDate();
-    const isBooked = dayEvents.some(event =>
-      (slotStart < event.end && slotEnd > event.start)
-    );
-    const eventDetail = dayEvents.find(event =>
-      (slotStart < event.end && slotEnd > event.start)
-    );
-    allTimes.push({
-      start: slotStart,
-      end: slotEnd,
-      isBooked,
-      eventDetail
-    });
+    for (let minute = 0; minute < 60; minute += 30) {
+      const slotStart = moment(slotInfo.start).set({ hour: hour, minute: minute, second: 0, millisecond: 0 }).toDate();
+      const slotEnd = moment(slotInfo.start).set({ hour: hour, minute: minute + 30, second: 0, millisecond: 0 }).toDate();
+      const isBooked = dayEvents.some(event =>
+        (slotStart < event.end && slotEnd > event.start)
+      );
+      const eventDetail = dayEvents.find(event =>
+        (slotStart < event.end && slotEnd > event.start)
+      );
+      allTimes.push({
+        start: slotStart,
+        end: slotEnd,
+        isBooked,
+        eventDetail
+      });
+    }
   }
 
   setSelectedEvent(allTimes);
@@ -159,22 +161,24 @@ const handleSelectEvent = (event) => {
   const dayEvents = events.filter(e => moment(e.start).isSame(event.start, 'day'));
   const allTimes = [];
 
-  // Generate time slots from 07:00 to 22:00 (แต่ละ slot คือ 1 ชั่วโมง)
+  // Generate time slots from 07:00 to 22:00 (แต่ละ slot คือ 30 นาที)
   for (let hour = 7; hour < 22; hour++) {
-    const slotStart = moment(event.start).set({ hour: hour, minute: 0, second: 0, millisecond: 0 }).toDate();
-    const slotEnd = moment(event.start).set({ hour: hour + 1, minute: 0, second: 0, millisecond: 0 }).toDate();
-    const isBooked = dayEvents.some(e =>
-      (slotStart < e.end && slotEnd > e.start)
-    );
-    const eventDetail = dayEvents.find(e =>
-      (slotStart < e.end && slotEnd > e.start)
-    );
-    allTimes.push({
-      start: slotStart,
-      end: slotEnd,
-      isBooked,
-      eventDetail
-    });
+    for (let minute = 0; minute < 60; minute += 30) {
+      const slotStart = moment(event.start).set({ hour: hour, minute: minute, second: 0, millisecond: 0 }).toDate();
+      const slotEnd = moment(event.start).set({ hour: hour, minute: minute + 30, second: 0, millisecond: 0 }).toDate();
+      const isBooked = dayEvents.some(e =>
+        (slotStart < e.end && slotEnd > e.start)
+      );
+      const eventDetail = dayEvents.find(e =>
+        (slotStart < e.end && slotEnd > e.start)
+      );
+      allTimes.push({
+        start: slotStart,
+        end: slotEnd,
+        isBooked,
+        eventDetail
+      });
+    }
   }
 
   setSelectedEvent(allTimes);
