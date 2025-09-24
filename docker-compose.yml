@@ -1,0 +1,29 @@
+version: "3.8"
+services:
+  mongo:
+    image: mongo:7
+    restart: always
+    container_name: mongoForTennisCourt
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: dev
+      MONGO_INITDB_ROOT_PASSWORD: AsiadevBkk
+      MONGO_INITDB_DATABASE: tennis
+    volumes:
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+
+  backend:
+    build: .
+    container_name: backendForTennisCourt
+    restart: always
+    ports:
+      - "5300:5300"
+    environment:
+      - MONGO_URI=mongodb://dev:AsiadevBkk@mongo:27017/tennis
+    depends_on:
+      - mongo
+    working_dir: /usr/src/app
+    command: ["npm", "start"]
+    volumes:
+      - .:/usr/src/app

@@ -19,8 +19,8 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 
 // Start server ใช้แค่ app.listen
-const PORT = 5000;
-app.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
+const PORT = 5300;
+app.listen(PORT,  '0.0.0.0' ,() => console.log(`Server is running on port ${PORT}`));
 
 
 
